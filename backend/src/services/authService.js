@@ -4,65 +4,91 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { sendPasswordResetEmail } from "../config/mailer.js";
 
-export const registerUser = async ({ name, email, password }) => {
-    // Check whether user already exists
-    const existingUser = await prisma.user.findUnique({
+export const registerUser = async ({ name, username, email, password }) => {
+    const existingEmail = await prisma.user.findUnique({
         where: { email }
     });
-    if (existingUser) {
+
+    if (existingEmail) {
         throw new Error("EMAIL_ALREADY_EXISTS");
     }
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 12);
-    // Create user
-    const user = await prisma.user.create({
-        data: {
-            name,
-            email,
-            password: hashedPassword
-        },
-        select: {
-            id: true,
-            name: true,
-            email: true,
-            createdAt: true
-        }
+
+    const existingUsername = await prisma.user.findUnique({
+        where: { username }
     });
-    return user;
+
+    if (existingUsername) {
+        throw new Error("USERNAME_ALREADY_EXISTS");
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    try {
+        return await prisma.user.create({
+            data: {
+                name,
+                username,
+                email,
+                password: hashedPassword
+            },
+            select: {
+                id: true,
+                name: true,
+                username: true,
+                email: true,
+                createdAt: true
+            }
+        });
+    } catch (error) {
+        // Handle concurrent duplicate registration attempts.
+        if (error.code === "P2002") {
+            const field = error.meta?.target?.includes("username")
+                ? "USERNAME_ALREADY_EXISTS"
+                : "EMAIL_ALREADY_EXISTS";
+
+            throw new Error(field);
+        }
+
+        throw error;
+    }
 };
 
-export const loginUser = async ({ email, password }) => {
-    // Find user by email
+export const loginUser = async ({ email, password, rememberMe = false }) => {
     const user = await prisma.user.findUnique({
         where: { email }
     });
+
     if (!user) {
         throw new Error("INVALID_CREDENTIALS");
     }
-    // Compare entered password with stored hash
+
     const isPasswordValid = await bcrypt.compare(
         password,
         user.password
     );
+
     if (!isPasswordValid) {
         throw new Error("INVALID_CREDENTIALS");
     }
-    // Generate JWT
+
+    const expiresIn = rememberMe ? "30d" : "1d";
+
     const token = jwt.sign(
         { sub: user.id, tokenVersion: user.tokenVersion },
         process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES_IN || "1d" }
+        { expiresIn }
     );
+
     return {
         user: {
             id: user.id,
             name: user.name,
             email: user.email
         },
-        token
+        token,
+        rememberMe
     };
 };
-
 export const forgotPassword = async (email) => {
     const user = await prisma.user.findUnique({
         where: { email }

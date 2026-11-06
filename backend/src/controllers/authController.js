@@ -22,19 +22,26 @@ export const register = asyncHandler(async (req, res) => {
             throw new ApiError(409, "Email already registered");
         }
 
+        if (error.message === "USERNAME_ALREADY_EXISTS") {
+            throw new ApiError(409, "Username already taken");
+        }
+
         throw error;
     }
 });
-
 export const login = asyncHandler(async (req, res) => {
     try {
         const result = await loginUser(req.body);
+
+        const cookieMaxAge = result.rememberMe
+            ? 30 * 24 * 60 * 60 * 1000  // 30 days
+            : 24 * 60 * 60 * 1000;      // 1 day
 
         res.cookie("token", result.token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
             sameSite: "lax",
-            maxAge: 24 * 60 * 60 * 1000,
+            maxAge: cookieMaxAge,
             path: "/"
         });
 
@@ -51,7 +58,6 @@ export const login = asyncHandler(async (req, res) => {
         throw error;
     }
 });
-
 export const forgotPasswordController = asyncHandler(async (req, res) => {
     await forgotPassword(req.body.email);
 

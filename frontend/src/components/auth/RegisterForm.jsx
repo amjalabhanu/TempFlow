@@ -91,6 +91,7 @@ export default function RegisterForm() {
     e.preventDefault();
 
     setMessage("");
+    console.log("Register API:", API.REGISTER);
 
     if (!validateForm()) return;
 
@@ -102,9 +103,39 @@ export default function RegisterForm() {
         username: form.username.trim(),
         email: form.email.trim(),
       });
-      setMessage("Demo account created. Opening your workspace...");
-      router.push("/workspace");
-    } catch {
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        if (response.status === 409) {
+          const errorMessage = data.message || "";
+
+          if (errorMessage.toLowerCase().includes("email")) {
+            setErrors({ email: "This email is already registered." });
+          } else if (errorMessage.toLowerCase().includes("username")) {
+            setErrors({ username: "This username is already taken." });
+          } else {
+            setErrors({ form: errorMessage || "Account already exists." });
+          }
+        } else if (response.status === 400 || response.status === 422) {
+          setErrors({
+            form: data.message || "Please check your registration details.",
+          });
+        } else {
+          setErrors({
+            form: data.message || "Registration failed. Please try again.",
+          });
+        }
+
+        return;
+      }
+
+      setMessage(
+        data.message || "Account created successfully. You can now sign in."
+      );
+
+      // TODO: Add navigation after confirming Bhuwan's registration flow.
+    } catch (error) {
       setErrors({
         form: "The local demo account could not be created. Please try again.",
       });

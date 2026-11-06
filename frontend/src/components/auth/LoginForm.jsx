@@ -52,10 +52,33 @@ export default function LoginForm() {
     setLoading(true);
 
     try {
-      await signIn({ email, rememberMe });
-      setMessage("Demo workspace ready. Redirecting you now...");
-      router.push("/workspace");
-    } catch {
+      const response = await fetch(API.LOGIN, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        // Include cookies if the backend uses HttpOnly cookie sessions.
+        credentials: "include",
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setErrors({
+          form: data.message || "Invalid email or password.",
+        });
+        return;
+      }
+
+      setMessage(data.message || "Login successful.");
+
+      // TODO: Handle dashboard navigation after Bhuwan confirms
+      // the authentication response and session contract.
+    } catch (error) {
       setErrors({
         form: "The local demo session could not be started. Please try again.",
       });
