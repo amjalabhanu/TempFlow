@@ -1,6 +1,5 @@
 
 "use client";
-import { API } from "@/constants/api";
 import { useState } from "react";
 import Link from "next/link";
 import {
@@ -37,29 +36,10 @@ async function handleSubmit(e) {
 
   setLoading(true);
 
-  try {
-    const response = await fetch(API.FORGOT_PASSWORD, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email }),
-    });
-
-    const data = await response.json();
-
-    if (response.ok) {
-      setMessage(data.message || "Password reset link sent. Check your inbox.");
-    } else if (response.status === 404) {
-      setError("This email is not registered. Please create an account.");
-    } else {
-      setError(data.message || "Something went wrong. Please try again.");
-    }
-  } catch (error) {
-    setError("Unable to connect to the server. Please try again.");
-  } finally {
+  window.setTimeout(() => {
+    setMessage("Demo reset link prepared. In a production build, this would be sent to your inbox.");
     setLoading(false);
-  }
+  }, 450);
 }
 
 

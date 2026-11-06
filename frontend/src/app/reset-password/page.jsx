@@ -12,7 +12,6 @@ import {
     CheckCircle2,
     ArrowLeft,
 } from "lucide-react";
-import { API } from "@/constants/api";
 
 export default function ResetPasswordPage() {
 
@@ -29,12 +28,8 @@ export default function ResetPasswordPage() {
 
 
     // Validate password fields
-    function validateForm(token) {
+    function validateForm() {
         const newErrors = {};
-
-        if (!token) {
-            newErrors.token = "Invalid or missing password reset link.";
-        }
 
         if (!password) {
             newErrors.password = "Password is required";
@@ -56,53 +51,20 @@ export default function ResetPasswordPage() {
     // Submit new password
     async function handleSubmit(e) {
         e.preventDefault();
-        const token = new URLSearchParams(
-            window.location.search
-        ).get("token") || "";
         setMessage("");
 
-        if (!validateForm(token)) return;
+        if (!validateForm()) return;
 
         setLoading(true);
-
-        try {
-            const response = await fetch(API.RESET_PASSWORD, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                credentials: "include",
-                body: JSON.stringify({
-                    token,
-                    password,
-                }),
-            });
-
-            const data = await response.json().catch(() => ({}));
-
-            if (!response.ok) {
-                setErrors({
-                    form:
-                        data.message ||
-                        "Unable to reset password. Your reset link may have expired.",
-                });
-                return;
-            }
-
+        window.setTimeout(() => {
             setSuccess(true);
             setMessage(
-                data.message || "Your password has been successfully updated."
+                "Your demo password has been updated locally. No server request was made."
             );
-
             setPassword("");
             setConfirmPassword("");
-        } catch (error) {
-            setErrors({
-                form: "Unable to connect to the server. Please try again.",
-            });
-        } finally {
             setLoading(false);
-        }
+        }, 450);
     }
 
     return (
@@ -162,22 +124,7 @@ export default function ResetPasswordPage() {
                         </div>
                     ) : (
                         <>
-                            {/* Invalid token */}
-                            {errors.token ? (
-                                <div className="space-y-5">
-                                    <p className="rounded-xl bg-red-50 p-4 text-sm text-red-600">
-                                        {errors.token}
-                                    </p>
-
-                                    <Link
-                                        href="/forgot-password"
-                                        className="flex items-center justify-center gap-2 text-sm font-semibold text-indigo-600 hover:underline"
-                                    >
-                                        Request a new reset link
-                                    </Link>
-                                </div>
-                            ) : (
-                                <form onSubmit={handleSubmit} className="space-y-5">
+                            <form onSubmit={handleSubmit} className="space-y-5">
 
                                     {/* New Password */}
                                     <div>
@@ -297,8 +244,7 @@ export default function ResetPasswordPage() {
                                         {loading ? "Updating Password..." : "Reset Password"}
                                         {!loading && <ArrowRight size={18} />}
                                     </button>
-                                </form>
-                            )}
+                            </form>
                         </>
                     )}
 

@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Eye,
   EyeOff,
@@ -10,9 +11,11 @@ import {
   Mail,
   LockKeyhole,
 } from "lucide-react";
-import { API } from "@/constants/api";
+import { useDemoAuth } from "@/context/DemoAuthContext";
 
 export default function LoginForm() {
+  const router = useRouter();
+  const { signIn } = useDemoAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -77,7 +80,7 @@ export default function LoginForm() {
       // the authentication response and session contract.
     } catch (error) {
       setErrors({
-        form: "Unable to connect to the server. Please try again.",
+        form: "The local demo session could not be started. Please try again.",
       });
     } finally {
       setLoading(false);
