@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Eye,
   EyeOff,
@@ -10,9 +11,11 @@ import {
   Mail,
   LockKeyhole,
 } from "lucide-react";
-import { API } from "@/constants/api";
+import { useDemoAuth } from "@/context/DemoAuthContext";
 
 export default function LoginForm() {
+  const router = useRouter();
+  const { signIn } = useDemoAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -49,36 +52,12 @@ export default function LoginForm() {
     setLoading(true);
 
     try {
-      const response = await fetch(API.LOGIN, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        // Include cookies if the backend uses HttpOnly cookie sessions.
-        credentials: "include",
-        body: JSON.stringify({
-          email,
-          password,
-          rememberMe,
-        }),
-      });
-
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        setErrors({
-          form: data.message || "Invalid email or password.",
-        });
-        return;
-      }
-
-      setMessage(data.message || "Login successful.");
-
-      // TODO: Handle dashboard navigation after Bhuwan confirms
-      // the authentication response and session contract.
-    } catch (error) {
+      await signIn({ email, rememberMe });
+      setMessage("Demo workspace ready. Redirecting you now...");
+      router.push("/workspace");
+    } catch {
       setErrors({
-        form: "Unable to connect to the server. Please try again.",
+        form: "The local demo session could not be started. Please try again.",
       });
     } finally {
       setLoading(false);

@@ -1,4 +1,6 @@
 import "../styles/globals.css";
+import { DemoAuthProvider } from "@/context/DemoAuthContext";
+import { DemoWorkspaceProvider } from "@/context/DemoWorkspaceContext";
 
 export const metadata = {
   title: "FlowSpace",
@@ -8,7 +10,11 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <DemoAuthProvider>
+          <DemoWorkspaceProvider>{children}</DemoWorkspaceProvider>
+        </DemoAuthProvider>
+      </body>
     </html>
   );
 }
