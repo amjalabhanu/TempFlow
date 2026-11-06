@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Eye,
   EyeOff,
@@ -12,9 +13,11 @@ import {
   LockKeyhole,
   ArrowRight,
 } from "lucide-react";
-import { API } from "@/constants/api";
+import { useDemoAuth } from "@/context/DemoAuthContext";
 
 export default function RegisterForm() {
+  const router = useRouter();
+  const { register } = useDemoAuth();
   const [form, setForm] = useState({
     name: "",
     username: "",
@@ -94,51 +97,16 @@ export default function RegisterForm() {
     setLoading(true);
 
     try {
-      const response = await fetch(API.REGISTER, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          name: form.name.trim(),
-          username: form.username.trim(),
-          email: form.email.trim(),
-          password: form.password,
-        }),
+      await register({
+        name: form.name.trim(),
+        username: form.username.trim(),
+        email: form.email.trim(),
       });
-
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        if (response.status === 409) {
-          setErrors({
-            username:
-              data.field === "email"
-                ? "This email is already registered."
-                : data.message || "This username is already taken.",
-          });
-        } else if (response.status === 400 || response.status === 422) {
-          setErrors({
-            form: data.message || "Please check your registration details.",
-          });
-        } else {
-          setErrors({
-            form: data.message || "Registration failed. Please try again.",
-          });
-        }
-
-        return;
-      }
-
-      setMessage(
-        data.message || "Account created successfully. You can now sign in."
-      );
-
-      // TODO: Add navigation after confirming Bhuwan's registration flow.
-    } catch (error) {
+      setMessage("Demo account created. Opening your workspace...");
+      router.push("/workspace");
+    } catch {
       setErrors({
-        form: "Unable to connect to the server. Please try again.",
+        form: "The local demo account could not be created. Please try again.",
       });
     } finally {
       setLoading(false);
