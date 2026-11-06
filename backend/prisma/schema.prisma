@@ -13,15 +13,109 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  password  String
-  tokenVersion Int @default(0)
-  resetPasswordToken  String?
+  id                   String    @id @default(uuid())
+  name                 String
+  username             String    @unique
+  email                String    @unique
+  password             String
+  tokenVersion         Int       @default(0)
+  resetPasswordToken   String?
   resetPasswordExpires DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  // Diagram relationships
+  ownedDiagrams       Diagram[]
+  collaborations      DiagramCollaborator[]
+  sentInvitations     DiagramInvitation[]   @relation("InvitationSender")
+  receivedInvitations DiagramInvitation[]   @relation("InvitationRecipient")
+
+  @@map("users")
+}
+
+model Diagram {
+  id          String  @id @default(uuid())
+  title       String  @default("Untitled Diagram")
+  description String?
+
+  // Diagram data
+  nodes Json @default("[]")
+  edges Json @default("[]")
+
+  // Ownership
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  // Visibility
+  visibility DiagramVisibility @default(PRIVATE)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@map("users")
+  collaborators DiagramCollaborator[]
+  invitations   DiagramInvitation[]
+
+  @@index([ownerId])
+  @@index([visibility])
+  @@map("diagrams")
+}
+
+model DiagramCollaborator {
+  id String @id @default(uuid())
+
+  diagramId String
+  userId    String
+
+  diagram Diagram @relation(fields: [diagramId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  role CollaboratorRole @default(VIEWER)
+
+  createdAt DateTime @default(now())
+
+  @@unique([diagramId, userId])
+  @@index([userId])
+  @@map("diagram_collaborators")
+}
+
+model DiagramInvitation {
+  id String @id @default(uuid())
+
+  diagramId   String
+  senderId    String
+  recipientId String?
+
+  email String
+  role  CollaboratorRole @default(VIEWER)
+
+  token     String           @unique
+  status    InvitationStatus @default(PENDING)
+  expiresAt DateTime
+
+  diagram   Diagram @relation(fields: [diagramId], references: [id], onDelete: Cascade)
+  sender    User    @relation("InvitationSender", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient User?   @relation("InvitationRecipient", fields: [recipientId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([diagramId])
+  @@map("diagram_invitations")
+}
+
+enum DiagramVisibility {
+  PRIVATE
+  PUBLIC
+}
+
+enum CollaboratorRole {
+  VIEWER
+  EDITOR
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
 }

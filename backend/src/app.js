@@ -8,6 +8,10 @@ import swaggerSpec from "./config/swagger.js";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import { authLimiter } from "./middleware/rateLimiter.js";
+import diagramRoutes from "./routes/diagramRoutes.js";
+import invitationRoutes from "./routes/invitationRoutes.js";
+
+
 
 const app=express();
 
@@ -31,6 +35,9 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+app.use("/api/diagrams", diagramRoutes);
+app.use("/api/diagrams", invitationRoutes);
 
 
 // Centralized error handler - always register last

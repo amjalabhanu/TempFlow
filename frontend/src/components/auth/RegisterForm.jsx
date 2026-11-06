@@ -88,6 +88,7 @@ export default function RegisterForm() {
     e.preventDefault();
 
     setMessage("");
+    console.log("Register API:", API.REGISTER);
 
     if (!validateForm()) return;
 
@@ -112,12 +113,15 @@ export default function RegisterForm() {
 
       if (!response.ok) {
         if (response.status === 409) {
-          setErrors({
-            username:
-              data.field === "email"
-                ? "This email is already registered."
-                : data.message || "This username is already taken.",
-          });
+          const errorMessage = data.message || "";
+
+          if (errorMessage.toLowerCase().includes("email")) {
+            setErrors({ email: "This email is already registered." });
+          } else if (errorMessage.toLowerCase().includes("username")) {
+            setErrors({ username: "This username is already taken." });
+          } else {
+            setErrors({ form: errorMessage || "Account already exists." });
+          }
         } else if (response.status === 400 || response.status === 422) {
           setErrors({
             form: data.message || "Please check your registration details.",

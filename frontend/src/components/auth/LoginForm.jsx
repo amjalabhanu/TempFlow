@@ -57,9 +57,8 @@ export default function LoginForm() {
         // Include cookies if the backend uses HttpOnly cookie sessions.
         credentials: "include",
         body: JSON.stringify({
-          email,
+          email: email.trim(),
           password,
-          rememberMe,
         }),
       });
 
