@@ -1,119 +1,291 @@
+
 "use client";
 
-import { createContext, useContext, useState } from "react";
-import { mockDiagrams } from "@/data/mockDiagrams";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
+
+import { API } from "@/constants/api";
+import { useDemoAuth } from "@/context/DemoAuthContext";
 
 const DemoWorkspaceContext = createContext(null);
 
-function cloneDiagram(diagram) {
+function formatDiagram(diagram, userId) {
+  const category = diagram.category || "Flowchart";
+
+  const previewMap = {
+    Flowchart: "flow",
+    Architecture: "architecture",
+    "Mind map": "mindmap",
+    Cloud: "cloud",
+    Process: "process",
+  };
+
+  const accentMap = {
+    Flowchart: "indigo",
+    Architecture: "blue",
+    "Mind map": "violet",
+    Cloud: "emerald",
+    Process: "amber",
+  };
+
   return {
     ...diagram,
-    collaborators: [...(diagram.collaborators || [])],
-    tags: [...(diagram.tags || [])],
+    category,
+    description: diagram.description || "",
+    preview: previewMap[category] || "flow",
+    type: previewMap[category] || "flow",
+    accent: accentMap[category] || "indigo",
+
+    owner: diagram.ownerId === userId ? "me" : "shared",
+    ownerName: diagram.ownerId === userId ? "You" : "Collaborator",
+    ownerInitials: "Y",
+
+    collaborators: diagram.collaborators || [],
+    collaboratorCount: (diagram.collaborators || []).length + 1,
+
+    updatedAt: diagram.updatedAt
+      ? new Date(diagram.updatedAt).toLocaleDateString()
+      : "Recently",
+
+    updatedAtValue: diagram.updatedAt
+      ? new Date(diagram.updatedAt).getTime()
+      : Date.now(),
+
+    createdAt: diagram.createdAt
+      ? new Date(diagram.createdAt).toLocaleDateString()
+      : "Recently",
+
+    tags: [category],
+    favorite: diagram.favorite ?? false,
+    trashed: diagram.trashed ?? false,
+    published: diagram.visibility === "PUBLIC",
+    sharedWithMe: diagram.ownerId !== userId,
+    isPrivate: diagram.visibility !== "PUBLIC",
+
+    // Preserve actual diagram data for visual previews
+    nodes: Array.isArray(diagram.nodes) ? diagram.nodes : [],
+    edges: Array.isArray(diagram.edges) ? diagram.edges : [],
+
+    // Keep separate counts for gallery cards
+    nodeCount: Array.isArray(diagram.nodes) ? diagram.nodes.length : 0,
+    connections: Array.isArray(diagram.edges) ? diagram.edges.length : 0,
   };
 }
 
 export function DemoWorkspaceProvider({ children }) {
-  const [diagrams, setDiagrams] = useState(() => mockDiagrams.map(cloneDiagram));
+  const { user, isAuthenticated, isReady } = useDemoAuth();
 
+  const [diagrams, setDiagrams] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // FETCH DIAGRAMS
+  const fetchDiagrams = useCallback(async () => {
+    if (!isAuthenticated) {
+      setDiagrams([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(API.DIAGRAMS, {
+        method: "GET",
+        credentials: "include",
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Failed to load diagrams.");
+      }
+
+      const formatted = result.data.map((diagram) =>
+        formatDiagram(diagram, user?.id)
+      );
+
+      setDiagrams(formatted);
+    } catch (err) {
+      setError(err.message || "Unable to load diagrams.");
+    } finally {
+      setLoading(false);
+    }
+  }, [isAuthenticated, user?.id]);
+
+  useEffect(() => {
+  if (!isReady) return;
+
+  const timer = setTimeout(() => {
+    fetchDiagrams();
+  }, 0);
+
+  return () => clearTimeout(timer);
+}, [isReady, fetchDiagrams]);
+
+  // FIND DIAGRAM
   function findDiagram(diagramId) {
     return diagrams.find((diagram) => diagram.id === diagramId);
   }
 
-  function updateDiagram(diagramId, changes) {
-    setDiagrams((current) =>
-      current.map((diagram) =>
-        diagram.id === diagramId ? { ...diagram, ...changes } : diagram,
-      ),
-    );
-  }
+  // UPDATE DIAGRAM ON BACKEND
+  async function updateDiagramOnServer(diagramId, changes) {
+    try {
+      const response = await fetch(API.UPDATE_DIAGRAM(diagramId), {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(changes),
+      });
 
-  function toggleFavorite(diagramId) {
-    const diagram = findDiagram(diagramId);
-    if (diagram) {
-      updateDiagram(diagramId, { favorite: !diagram.favorite });
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Failed to update diagram.");
+      }
+
+      setDiagrams((current) =>
+        current.map((diagram) =>
+          diagram.id === diagramId
+            ? formatDiagram(result.data, user?.id)
+            : diagram
+        )
+      );
+
+      return true;
+    } catch (err) {
+      console.error("Diagram update failed:", err);
+      alert(err.message || "Unable to update diagram.");
+      return false;
     }
   }
 
-  function moveToTrash(diagramId) {
-    updateDiagram(diagramId, { trashed: true, favorite: false });
+  // FAVORITES
+  async function toggleFavorite(diagramId) {
+    const diagram = findDiagram(diagramId);
+
+    if (!diagram) return false;
+
+    return updateDiagramOnServer(diagramId, {
+      favorite: !diagram.favorite,
+    });
   }
 
-  function restoreDiagram(diagramId) {
-    updateDiagram(diagramId, { trashed: false });
-  }
-
-  function deletePermanently(diagramId) {
-    setDiagrams((current) => current.filter((diagram) => diagram.id !== diagramId));
-  }
-
-  function emptyTrash() {
-    setDiagrams((current) => current.filter((diagram) => !diagram.trashed));
-  }
-
-  function duplicateDiagram(diagramId) {
-    const source = findDiagram(diagramId);
-
-    if (!source) return null;
-
-    const copyId = `${source.id}-copy-${Date.now()}`;
-    const copy = {
-      ...cloneDiagram(source),
-      id: copyId,
-      title: `${source.title} copy`,
-      updatedAt: "Just now",
-      updatedAtValue: Date.now(),
+  // MOVE TO TRASH
+  async function moveToTrash(diagramId) {
+    return updateDiagramOnServer(diagramId, {
+      trashed: true,
       favorite: false,
-      trashed: false,
-      published: false,
-      sharedWithMe: false,
-      owner: "me",
-      ownerName: "You",
-    };
-
-    setDiagrams((current) => [copy, ...current]);
-    return copy;
+    });
   }
 
-  function createDiagram({ title, category, description }) {
-    const id = `${title
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "") || "untitled-diagram"}-${Date.now()}`;
-    const newDiagram = {
-      id,
-      title: title.trim() || "Untitled diagram",
-      category,
-      description:
-        description.trim() || "A new diagram created in the FlowSpace demo.",
-      type: "flowchart",
-      accent: "indigo",
-      preview: "flow",
-      owner: "me",
-      ownerName: "You",
-      ownerInitials: "Y",
-      collaborators: [],
-      collaboratorCount: 0,
-      updatedAt: "Just now",
-      updatedAtValue: Date.now(),
-      createdAt: "Today",
-      tags: [category, "New"],
-      favorite: false,
-      published: false,
-      sharedWithMe: false,
+  // RESTORE FROM TRASH
+  async function restoreDiagram(diagramId) {
+    return updateDiagramOnServer(diagramId, {
       trashed: false,
-      isPrivate: true,
-      nodes: 6,
-      connections: 5,
-    };
+    });
+  }
 
-    setDiagrams((current) => [newDiagram, ...current]);
-    return newDiagram;
+  // PERMANENT DELETE
+  async function deletePermanently(diagramId) {
+    try {
+      const response = await fetch(API.DELETE_DIAGRAM(diagramId), {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Failed to delete diagram.");
+      }
+
+      setDiagrams((current) =>
+        current.filter((diagram) => diagram.id !== diagramId)
+      );
+
+      return true;
+    } catch (err) {
+      console.error("Delete diagram failed:", err);
+      alert(err.message || "Unable to delete diagram.");
+      return false;
+    }
+  }
+
+  // EMPTY TRASH
+  async function emptyTrash() {
+    const trashedDiagrams = diagrams.filter((diagram) => diagram.trashed);
+
+    const results = await Promise.allSettled(
+      trashedDiagrams.map((diagram) =>
+        fetch(API.DELETE_DIAGRAM(diagram.id), {
+          method: "DELETE",
+          credentials: "include",
+        }).then(async (response) => {
+          const result = await response.json();
+
+          if (!response.ok || !result.success) {
+            throw new Error(result.message || "Delete failed.");
+          }
+
+          return diagram.id;
+        })
+      )
+    );
+
+    const deletedIds = new Set(
+      results
+        .filter((result) => result.status === "fulfilled")
+        .map((result) => result.value)
+    );
+
+    setDiagrams((current) =>
+      current.filter((diagram) => !deletedIds.has(diagram.id))
+    );
+
+    if (deletedIds.size !== trashedDiagrams.length) {
+      alert("Some diagrams could not be permanently deleted.");
+    }
+  }
+
+  // DUPLICATE DIAGRAM
+  async function duplicateDiagram(diagramId) {
+    try {
+      const response = await fetch(API.DUPLICATE_DIAGRAM(diagramId), {
+        method: "POST",
+        credentials: "include",
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Failed to duplicate diagram.");
+      }
+
+      const newDiagram = formatDiagram(result.data, user?.id);
+
+      setDiagrams((current) => [newDiagram, ...current]);
+
+      return newDiagram;
+    } catch (err) {
+      console.error("Duplicate diagram failed:", err);
+      alert(err.message || "Unable to duplicate diagram.");
+      return null;
+    }
   }
 
   const value = {
     diagrams,
+    loading,
+    error,
     findDiagram,
     toggleFavorite,
     moveToTrash,
@@ -121,7 +293,7 @@ export function DemoWorkspaceProvider({ children }) {
     deletePermanently,
     emptyTrash,
     duplicateDiagram,
-    createDiagram,
+    refreshDiagrams: fetchDiagrams,
   };
 
   return (
@@ -135,7 +307,9 @@ export function useDemoWorkspace() {
   const context = useContext(DemoWorkspaceContext);
 
   if (!context) {
-    throw new Error("useDemoWorkspace must be used within DemoWorkspaceProvider");
+    throw new Error(
+      "useDemoWorkspace must be used within DemoWorkspaceProvider"
+    );
   }
 
   return context;

@@ -1,6 +1,5 @@
 import "../styles/globals.css";
-import { DemoAuthProvider } from "@/context/DemoAuthContext";
-import { DemoWorkspaceProvider } from "@/context/DemoWorkspaceContext";
+import ClientProviders from "@/components/layout/ClientProviders";
 
 export const metadata = {
   title: "FlowSpace",
@@ -11,9 +10,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
-        <DemoAuthProvider>
-          <DemoWorkspaceProvider>{children}</DemoWorkspaceProvider>
-        </DemoAuthProvider>
+        <ClientProviders>{children}</ClientProviders>
       </body>
     </html>
   );

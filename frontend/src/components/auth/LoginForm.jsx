@@ -11,11 +11,12 @@ import {
   Mail,
   LockKeyhole,
 } from "lucide-react";
+import { API } from "@/constants/api";
 import { useDemoAuth } from "@/context/DemoAuthContext";
 
 export default function LoginForm() {
   const router = useRouter();
-  const { signIn } = useDemoAuth();
+const { setAuthenticatedUser } = useDemoAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -42,50 +43,48 @@ export default function LoginForm() {
     return Object.keys(newErrors).length === 0;
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault();
+  
+async function handleSubmit(e) {
+  e.preventDefault();
+  setMessage("");
 
-    setMessage("");
+  if (!validateForm()) return;
 
-    if (!validateForm()) return;
+  setLoading(true);
 
-    setLoading(true);
+  try {
+    const response = await fetch(API.LOGIN, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: email.trim(),
+        password,
+        rememberMe,
+      }),
+    });
 
-    try {
-      const response = await fetch(API.LOGIN, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        // Include cookies if the backend uses HttpOnly cookie sessions.
-        credentials: "include",
-        body: JSON.stringify({
-          email: email.trim(),
-          password,
-        }),
-      });
+    const result = await response.json().catch(() => ({}));
 
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        setErrors({
-          form: data.message || "Invalid email or password.",
-        });
-        return;
-      }
-
-      setMessage(data.message || "Login successful.");
-
-      // TODO: Handle dashboard navigation after Bhuwan confirms
-      // the authentication response and session contract.
-    } catch (error) {
-      setErrors({
-        form: "The local demo session could not be started. Please try again.",
-      });
-    } finally {
-      setLoading(false);
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || "Login failed.");
     }
+
+    setAuthenticatedUser(result.data);
+    setMessage("Login successful. Redirecting...");
+
+    router.push("/workspace");
+  } catch (error) {
+    setErrors({
+      form: error.message || "Unable to sign in. Please try again.",
+    });
+  } finally {
+    setLoading(false);
   }
+}
+
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">

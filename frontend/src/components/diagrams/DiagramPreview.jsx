@@ -1,113 +1,159 @@
-import {
-  Cloud,
-  GitBranch,
-  Map,
-  Network,
-  Workflow,
-} from "lucide-react";
 
-const previewStyles = {
-  indigo: {
-    canvas: "from-indigo-50 via-white to-violet-50",
-    line: "bg-indigo-200",
-    node: "border-indigo-200 bg-white text-indigo-600",
-    accent: "bg-indigo-500",
-  },
-  blue: {
-    canvas: "from-blue-50 via-white to-cyan-50",
-    line: "bg-blue-200",
-    node: "border-blue-200 bg-white text-blue-600",
-    accent: "bg-blue-500",
-  },
-  violet: {
-    canvas: "from-violet-50 via-white to-fuchsia-50",
-    line: "bg-violet-200",
-    node: "border-violet-200 bg-white text-violet-600",
-    accent: "bg-violet-500",
-  },
-  amber: {
-    canvas: "from-amber-50 via-white to-orange-50",
-    line: "bg-amber-200",
-    node: "border-amber-200 bg-white text-amber-600",
-    accent: "bg-amber-500",
-  },
-  emerald: {
-    canvas: "from-emerald-50 via-white to-teal-50",
-    line: "bg-emerald-200",
-    node: "border-emerald-200 bg-white text-emerald-600",
-    accent: "bg-emerald-500",
-  },
-  rose: {
-    canvas: "from-rose-50 via-white to-pink-50",
-    line: "bg-rose-200",
-    node: "border-rose-200 bg-white text-rose-600",
-    accent: "bg-rose-500",
-  },
-};
-
-function PreviewIcon({ type, size = 24 }) {
-  const icons = {
-    architecture: Network,
-    cloud: Cloud,
-    flow: GitBranch,
-    mindmap: Map,
-    process: Workflow,
-  };
-  const Icon = icons[type] || Workflow;
-
-  return <Icon size={size} strokeWidth={1.7} />;
-}
+"use client";
 
 export default function DiagramPreview({ diagram, size = "card" }) {
-  const style = previewStyles[diagram.accent] || previewStyles.indigo;
+  const nodes = Array.isArray(diagram.nodes) ? diagram.nodes : [];
+  const edges = Array.isArray(diagram.edges) ? diagram.edges : [];
+
   const isLarge = size === "large";
-  const nodeClass = `absolute flex items-center justify-center rounded-lg border shadow-sm ${style.node}`;
-  const canvasHeight = isLarge ? "h-72 sm:h-96" : "h-40";
+  const height = isLarge ? "h-72 sm:h-96" : "h-40";
+
+  if (!nodes.length) {
+    return (
+      <div className={`relative flex ${height} items-center justify-center overflow-hidden bg-gradient-to-br from-indigo-50 to-violet-50`}>
+        <div className="text-center">
+          <p className="text-sm font-semibold text-indigo-600">
+            Empty diagram
+          </p>
+          <p className="mt-1 text-xs text-gray-500">
+            Click to start editing
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const nodeWidth = 150;
+  const nodeHeight = 70;
+
+  const minX = Math.min(...nodes.map((n) => n.position?.x || 0));
+  const minY = Math.min(...nodes.map((n) => n.position?.y || 0));
+  const maxX = Math.max(...nodes.map((n) => (n.position?.x || 0) + nodeWidth));
+  const maxY = Math.max(...nodes.map((n) => (n.position?.y || 0) + nodeHeight));
+
+  const padding = 60;
+  const viewWidth = Math.max(maxX - minX + padding * 2, 300);
+  const viewHeight = Math.max(maxY - minY + padding * 2, 180);
+
+  const getCenter = (node) => ({
+    x: (node.position?.x || 0) - minX + padding + nodeWidth / 2,
+    y: (node.position?.y || 0) - minY + padding + nodeHeight / 2,
+  });
 
   return (
     <div
-      className={`relative overflow-hidden bg-gradient-to-br ${style.canvas} ${canvasHeight}`}
-      aria-label={`${diagram.title} diagram preview`}
-      role="img"
+      className={`group relative block ${height} overflow-hidden bg-gradient-to-br from-slate-50 via-white to-indigo-50`}
     >
-      <div className="absolute inset-0 opacity-40 [background-image:radial-gradient(#c7d2fe_1px,transparent_1px)] [background-size:14px_14px]" />
+      <svg
+        viewBox={`0 0 ${viewWidth} ${viewHeight}`}
+        className="h-full w-full"
+        preserveAspectRatio="xMidYMid meet"
+      >
+        <defs>
+          <pattern
+            id={`grid-${diagram.id}`}
+            width="18"
+            height="18"
+            patternUnits="userSpaceOnUse"
+          >
+            <circle cx="1" cy="1" r="1" fill="#cbd5e1" />
+          </pattern>
+        </defs>
 
-      {diagram.preview === "mindmap" ? (
-        <>
-          <div className={`absolute left-1/2 top-1/2 h-0.5 w-24 -translate-x-full -translate-y-1/2 -rotate-25 ${style.line}`} />
-          <div className={`absolute left-1/2 top-1/2 h-0.5 w-24 -translate-y-1/2 rotate-25 ${style.line}`} />
-          <div className={`absolute left-1/2 top-1/2 h-0.5 w-20 -translate-x-1/2 -translate-y-1/2 rotate-90 ${style.line}`} />
-          <div className={`${nodeClass} left-1/2 top-1/2 z-10 h-14 w-14 -translate-x-1/2 -translate-y-1/2 ${style.accent} border-0 text-white`}>
-            <PreviewIcon type="mindmap" size={isLarge ? 32 : 23} />
-          </div>
-          <div className={`${nodeClass} left-[12%] top-[25%] h-9 w-20 text-[9px] font-semibold`}>Audience</div>
-          <div className={`${nodeClass} right-[10%] top-[24%] h-9 w-20 text-[9px] font-semibold`}>Ideas</div>
-          <div className={`${nodeClass} bottom-[16%] left-[17%] h-9 w-20 text-[9px] font-semibold`}>Goals</div>
-          <div className={`${nodeClass} bottom-[15%] right-[14%] h-9 w-20 text-[9px] font-semibold`}>Actions</div>
-        </>
-      ) : (
-        <>
-          <div className={`absolute left-[23%] top-1/2 h-0.5 w-[22%] -translate-y-1/2 ${style.line}`} />
-          <div className={`absolute left-[54%] top-1/2 h-0.5 w-[20%] -translate-y-1/2 ${style.line}`} />
-          <div className={`absolute left-[42%] top-[35%] h-[30%] w-0.5 ${style.line}`} />
-          <div className={`${nodeClass} left-[11%] top-1/2 h-11 w-[19%] -translate-y-1/2`}>
-            <PreviewIcon type={diagram.preview} size={isLarge ? 26 : 18} />
-          </div>
-          <div className={`${nodeClass} left-[42%] top-[29%] h-11 w-[20%] -translate-x-1/2 -translate-y-1/2`}>
-            <span className={`h-2.5 w-2.5 rounded-full ${style.accent}`} />
-          </div>
-          <div className={`${nodeClass} left-[42%] top-[71%] h-11 w-[20%] -translate-x-1/2 -translate-y-1/2`}>
-            <span className="h-2.5 w-2.5 rounded-full bg-slate-400" />
-          </div>
-          <div className={`${nodeClass} right-[9%] top-1/2 h-12 w-[21%] -translate-y-1/2`}>
-            <PreviewIcon type={diagram.preview} size={isLarge ? 27 : 19} />
-          </div>
-        </>
-      )}
+        <rect
+          width={viewWidth}
+          height={viewHeight}
+          fill={`url(#grid-${diagram.id})`}
+        />
 
-      <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-full border border-white/70 bg-white/80 px-2.5 py-1 text-[10px] font-semibold text-slate-500 shadow-sm backdrop-blur">
-        <span className={`h-1.5 w-1.5 rounded-full ${style.accent}`} />
-        {diagram.nodes || 8} nodes
+        {/* Connections */}
+        {edges.map((edge) => {
+          const source = nodes.find((n) => n.id === edge.source);
+          const target = nodes.find((n) => n.id === edge.target);
+
+          if (!source || !target) return null;
+
+          const start = getCenter(source);
+          const end = getCenter(target);
+
+          return (
+            <line
+              key={edge.id}
+              x1={start.x}
+              y1={start.y}
+              x2={end.x}
+              y2={end.y}
+              stroke={edge.style?.stroke || "#94a3b8"}
+              strokeWidth="2.5"
+            />
+          );
+        })}
+
+        {/* Diagram nodes */}
+        {nodes.map((node) => {
+          const x = (node.position?.x || 0) - minX + padding;
+          const y = (node.position?.y || 0) - minY + padding;
+
+          const shape = node.data?.shape || "rectangle";
+          const label = node.data?.label || node.data?.text || "Shape";
+
+          const fill = node.data?.background || node.style?.background || "#eef2ff";
+          const stroke = node.data?.borderColor || node.style?.borderColor || "#6366f1";
+
+          return (
+            <g key={node.id}>
+              {shape === "circle" ? (
+                <ellipse
+                  cx={x + 75}
+                  cy={y + 35}
+                  rx="75"
+                  ry="35"
+                  fill={fill}
+                  stroke={stroke}
+                  strokeWidth="2.5"
+                />
+              ) : shape === "diamond" ? (
+                <polygon
+                  points={`${x + 75},${y} ${x + 150},${y + 35} ${x + 75},${y + 70} ${x},${y + 35}`}
+                  fill={fill}
+                  stroke={stroke}
+                  strokeWidth="2.5"
+                />
+              ) : (
+                <rect
+                  x={x}
+                  y={y}
+                  width={nodeWidth}
+                  height={nodeHeight}
+                  rx={shape === "rounded" ? 35 : 8}
+                  fill={fill}
+                  stroke={stroke}
+                  strokeWidth="2.5"
+                />
+              )}
+
+              <text
+                x={x + 75}
+                y={y + 35}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fill={node.data?.textColor || "#334155"}
+                fontSize="12"
+                fontWeight="600"
+              >
+                {label.length > 20 ? `${label.slice(0, 18)}...` : label}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+
+      <div className="absolute bottom-2 right-2 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-semibold text-indigo-600 shadow-sm opacity-0 transition group-hover:opacity-100">
+        Click to edit →
+      </div>
+
+      <div className="pointer-events-none absolute bottom-2 left-2 rounded-full border border-white bg-white/90 px-2 py-1 text-[10px] font-medium text-slate-600 shadow-sm">
+        {diagram.nodeCount} nodes
       </div>
     </div>
   );
