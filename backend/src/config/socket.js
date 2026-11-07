@@ -1,32 +1,44 @@
 import { Server } from "socket.io";
-import { parse } from "cookie";
 import jwt from "jsonwebtoken";
-import prisma from "./database.js";
+import cookie from "cookie";
+import prisma from "../config/database.js";
 
 export const connectedUsers = new Map();
 
-let io;
-
 export const initializeSocket = (httpServer) => {
-  io = new Server(httpServer, {
+  const io = new Server(httpServer, {
     cors: {
-      origin: process.env.CLIENT_URL || "http://localhost:3000",
+      origin: "http://localhost:3000",
       methods: ["GET", "POST"],
       credentials: true
+    },
+    allowRequest: (req, callback) => {
+      const origin = req.headers.origin;
+
+      callback(
+        null,
+        !origin || origin === "http://localhost:3000"
+      );
     }
   });
 
   // Authenticate every incoming socket connection
   io.use(async (socket, next) => {
     try {
-      const cookies = parse(socket.handshake.headers.cookie || "");
+      const cookies = cookie.parse(
+        socket.handshake.headers.cookie || ""
+      );
+
       const token = cookies.token;
 
       if (!token) {
-        return next(new Error("Authentication required"));
+        return next(new Error("Unauthorized"));
       }
 
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const decoded = jwt.verify(
+        token,
+        process.env.JWT_SECRET
+      );
 
       const user = await prisma.user.findUnique({
         where: { id: decoded.sub },
@@ -37,22 +49,22 @@ export const initializeSocket = (httpServer) => {
       });
 
       if (!user || user.tokenVersion !== decoded.tokenVersion) {
-        return next(new Error("Invalid or expired session"));
+        return next(new Error("Unauthorized"));
       }
 
-      socket.data.user = { id: user.id };
+      socket.data.user = {
+        id: user.id
+      };
 
       next();
     } catch (error) {
-      next(new Error("Authentication failed"));
+      next(new Error("Unauthorized"));
     }
   });
 
-  // Handle authenticated connections
+  // Successful connection
   io.on("connection", (socket) => {
     const userId = socket.data.user.id;
-
-    console.log(`User ${userId} connected: ${socket.id}`);
 
     if (!connectedUsers.has(userId)) {
       connectedUsers.set(userId, new Set());
@@ -60,28 +72,24 @@ export const initializeSocket = (httpServer) => {
 
     connectedUsers.get(userId).add(socket.id);
 
+    console.log(`User connected: ${userId}`);
+    console.log(`Socket ID: ${socket.id}`);
+
+    // Disconnection
     socket.on("disconnect", () => {
-      console.log(`User ${userId} disconnected: ${socket.id}`);
+      const userSockets = connectedUsers.get(userId);
 
-      const sockets = connectedUsers.get(userId);
+      if (userSockets) {
+        userSockets.delete(socket.id);
 
-      if (sockets) {
-        sockets.delete(socket.id);
-
-        if (sockets.size === 0) {
+        if (userSockets.size === 0) {
           connectedUsers.delete(userId);
         }
       }
+
+      console.log(`User disconnected: ${userId}`);
     });
   });
-
-  return io;
-};
-
-export const getIO = () => {
-  if (!io) {
-    throw new Error("Socket.IO has not been initialized");
-  }
 
   return io;
 };

@@ -1,4 +1,4 @@
-import {transporter }from "../config/mailer.js";
+import { transporter } from "../config/mailer.js";
 
 export const sendInvitationEmail = async (email, token, role) => {
   const invitationLink =
