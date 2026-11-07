@@ -5,7 +5,8 @@ import {
     getUserDiagrams,
     getDiagramById,
     updateDiagram,
-    deleteDiagram
+    deleteDiagram,
+    duplicateDiagram
 } from "../services/diagramService.js";
 
 export const createDiagramController = asyncHandler(async (req, res) => {
@@ -109,7 +110,7 @@ export const duplicateDiagramController = asyncHandler(async (req, res) => {
     }
 
     if (error.message === "FORBIDDEN") {
-      throw new ApiError(403, "You do not have access to this diagram");
+      throw new ApiError(403, "You do not have permission to duplicate this diagram");
     }
 
     throw error;

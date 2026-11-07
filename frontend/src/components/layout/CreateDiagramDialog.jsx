@@ -1,28 +1,77 @@
+
 "use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { FilePlus2, X } from "lucide-react";
-import { diagramCategories } from "@/data/mockDiagrams";
-import { useDemoWorkspace } from "@/context/DemoWorkspaceContext";
+import { API } from "@/constants/api";
+
+const diagramCategories = [
+  "Flowchart",
+  "Architecture",
+  "Mind map",
+  "Cloud",
+  "Process",
+];
 
 export default function CreateDiagramDialog({ open, onClose }) {
   const router = useRouter();
-  const { createDiagram } = useDemoWorkspace();
+
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("Flowchart");
   const [description, setDescription] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   if (!open) return null;
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
-    const diagram = createDiagram({ title, category, description });
-    setTitle("");
-    setCategory("Flowchart");
-    setDescription("");
-    onClose();
-    router.push(`/diagrams/${diagram.id}`);
+    setError("");
+
+    if (!title.trim()) {
+      setError("Please enter a diagram name.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch(API.CREATE_DIAGRAM, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: title.trim(),
+          category,
+          description: description.trim(),
+          nodes: [],
+          edges: [],
+          visibility: "PRIVATE",
+        }),
+      });
+
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Unable to create diagram.");
+      }
+
+      const diagram = result.data;
+
+      setTitle("");
+      setCategory("Flowchart");
+      setDescription("");
+      onClose();
+
+      router.push(`/diagrams/${diagram.id}/edit`);
+    } catch (err) {
+      setError(err.message || "Something went wrong.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -43,13 +92,19 @@ export default function CreateDiagramDialog({ open, onClose }) {
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-600">
               <FilePlus2 size={24} />
             </div>
-            <h2 id="create-diagram-title" className="mt-4 text-xl font-bold text-gray-900">
+
+            <h2
+              id="create-diagram-title"
+              className="mt-4 text-xl font-bold text-gray-900"
+            >
               Create a new diagram
             </h2>
+
             <p className="mt-1 text-sm leading-6 text-gray-500">
-              Start with a clean local draft. Nothing is sent to a backend.
+              Create and save your diagram to your workspace.
             </p>
           </div>
+
           <button
             type="button"
             onClick={onClose}
@@ -62,12 +117,17 @@ export default function CreateDiagramDialog({ open, onClose }) {
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
-            <label htmlFor="diagram-title" className="mb-1.5 block text-sm font-semibold text-gray-700">
+            <label
+              htmlFor="diagram-title"
+              className="mb-1.5 block text-sm font-semibold text-gray-700"
+            >
               Diagram name
             </label>
+
             <input
               id="diagram-title"
               autoFocus
+              required
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               placeholder="e.g. Product launch flow"
@@ -76,27 +136,36 @@ export default function CreateDiagramDialog({ open, onClose }) {
           </div>
 
           <div>
-            <label htmlFor="diagram-category" className="mb-1.5 block text-sm font-semibold text-gray-700">
+            <label
+              htmlFor="diagram-category"
+              className="mb-1.5 block text-sm font-semibold text-gray-700"
+            >
               Category
             </label>
+
             <select
               id="diagram-category"
               value={category}
               onChange={(event) => setCategory(event.target.value)}
               className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-3 text-sm text-gray-700 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
             >
-              {diagramCategories
-                .filter((item) => item.id !== "all")
-                .map((item) => (
-                  <option key={item.id} value={item.label}>{item.label}</option>
-                ))}
+              {diagramCategories.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
             </select>
           </div>
 
           <div>
-            <label htmlFor="diagram-description" className="mb-1.5 block text-sm font-semibold text-gray-700">
-              Description <span className="font-normal text-gray-400">(optional)</span>
+            <label
+              htmlFor="diagram-description"
+              className="mb-1.5 block text-sm font-semibold text-gray-700"
+            >
+              Description{" "}
+              <span className="font-normal text-gray-400">(optional)</span>
             </label>
+
             <textarea
               id="diagram-description"
               rows={3}
@@ -107,19 +176,28 @@ export default function CreateDiagramDialog({ open, onClose }) {
             />
           </div>
 
+          {error && (
+            <p className="text-sm text-red-600" role="alert">
+              {error}
+            </p>
+          )}
+
           <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl px-4 py-2.5 text-sm font-semibold text-gray-600 transition hover:bg-gray-100"
+              disabled={loading}
+              className="rounded-xl px-4 py-2.5 text-sm font-semibold text-gray-600 transition hover:bg-gray-100 disabled:opacity-50"
             >
               Cancel
             </button>
+
             <button
               type="submit"
-              className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
+              disabled={loading}
+              className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Create diagram
+              {loading ? "Creating..." : "Create diagram"}
             </button>
           </div>
         </form>

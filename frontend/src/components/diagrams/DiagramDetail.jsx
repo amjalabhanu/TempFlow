@@ -190,7 +190,7 @@ export default function DiagramDetail({ diagramId }) {
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               <div className="rounded-xl bg-gray-50 p-4">
                 <Network size={19} className="text-indigo-600" />
-                <p className="mt-3 text-sm font-semibold text-gray-900">{diagram.nodes} nodes · {diagram.connections} connections</p>
+                <p className="mt-3 text-sm font-semibold text-gray-900">{(diagram.nodeCount ?? diagram.nodes?.length ?? 0)} nodes · {diagram.connections} connections</p>
                 <p className="mt-1 text-sm text-gray-500">Built as a local interactive demo canvas.</p>
               </div>
               <div className="rounded-xl bg-gray-50 p-4">

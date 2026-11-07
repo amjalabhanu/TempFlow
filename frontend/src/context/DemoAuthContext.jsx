@@ -39,14 +39,21 @@ function firstNameFromEmail(email) {
 
 function saveUser(nextUser) {
   if (typeof window !== "undefined") {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser));
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser));
+    } catch {
+      // The in-memory demo session still works when browser storage is blocked.
+    }
   }
 }
 
 export function DemoAuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isReady, setIsReady] = useState(false);
-
+  const setAuthenticatedUser = useCallback((authenticatedUser) => {
+  setUser(authenticatedUser);
+  saveUser(authenticatedUser);
+}, []);
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
@@ -60,7 +67,11 @@ export function DemoAuthProvider({ children }) {
           setUser({ ...demoUser, ...JSON.parse(storedUser) });
         }
       } catch {
-        window.localStorage.removeItem(STORAGE_KEY);
+        try {
+          window.localStorage.removeItem(STORAGE_KEY);
+        } catch {
+          // Ignore storage cleanup failures and continue as a guest.
+        }
       } finally {
         setIsReady(true);
       }
@@ -113,7 +124,11 @@ export function DemoAuthProvider({ children }) {
     setUser(null);
 
     if (typeof window !== "undefined") {
-      window.localStorage.removeItem(STORAGE_KEY);
+      try {
+        window.localStorage.removeItem(STORAGE_KEY);
+      } catch {
+        // Signing out in memory still works when browser storage is blocked.
+      }
     }
   }, []);
 
@@ -132,14 +147,23 @@ export function DemoAuthProvider({ children }) {
   }, []);
 
   const value = useMemo(() => ({
-    user,
-    isAuthenticated: Boolean(user),
-    isReady,
-    signIn,
-    register,
-    signOut,
-    updateProfile,
-  }), [isReady, register, signIn, signOut, updateProfile, user]);
+  user,
+  isAuthenticated: Boolean(user),
+  isReady,
+  setAuthenticatedUser,
+  signIn,
+  register,
+  signOut,
+  updateProfile,
+}), [
+  isReady,
+  register,
+  signIn,
+  signOut,
+  updateProfile,
+  user,
+  setAuthenticatedUser,
+]);
 
   return (
     <DemoAuthContext.Provider value={value}>

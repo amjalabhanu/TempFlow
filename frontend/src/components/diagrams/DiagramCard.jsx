@@ -26,7 +26,7 @@ export default function DiagramCard({
 
   return (
     <article className="group overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:border-indigo-200 hover:shadow-lg">
-      <Link href={`/diagrams/${diagram.id}`} className="block focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500">
+      <Link href={`/diagrams/${diagram.id}/edit`} className="block focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500">
         <DiagramPreview diagram={diagram} />
       </Link>
 
@@ -37,7 +37,7 @@ export default function DiagramCard({
               {diagram.category}
             </span>
             <Link
-              href={`/diagrams/${diagram.id}`}
+              href={`/diagrams/${diagram.id}/edit`}
               className="mt-1 block truncate font-bold text-gray-900 outline-none hover:text-indigo-700 focus:text-indigo-700"
             >
               {diagram.title}
