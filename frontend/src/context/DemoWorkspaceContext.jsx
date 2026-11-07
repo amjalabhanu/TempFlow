@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useState,
+  useCallback,
 } from "react";
 
 import { API } from "@/constants/api";
@@ -84,7 +85,7 @@ export function DemoWorkspaceProvider({ children }) {
   const [error, setError] = useState(null);
 
   // FETCH DIAGRAMS
-  async function fetchDiagrams() {
+  const fetchDiagrams = useCallback(async () => {
     if (!isAuthenticated) {
       setDiagrams([]);
       setLoading(false);
@@ -116,13 +117,17 @@ export function DemoWorkspaceProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [isAuthenticated, user?.id]);
 
   useEffect(() => {
-    if (!isReady) return;
+  if (!isReady) return;
 
+  const timer = setTimeout(() => {
     fetchDiagrams();
-  }, [isReady, isAuthenticated, user]);
+  }, 0);
+
+  return () => clearTimeout(timer);
+}, [isReady, fetchDiagrams]);
 
   // FIND DIAGRAM
   function findDiagram(diagramId) {
