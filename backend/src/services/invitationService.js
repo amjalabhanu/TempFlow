@@ -17,7 +17,7 @@ export const createInvitation = async (
     throw new Error("FORBIDDEN");
   }
 
-  if (email.trim().length === 0) {
+  if (!email || email.trim().length === 0) {
     throw new Error("INVALID_EMAIL");
   }
 
@@ -27,10 +27,31 @@ export const createInvitation = async (
     where: { email: normalizedEmail }
   });
 
-  if (recipient?.id === senderId) {
+  if (!recipient) {
+    throw new Error("USER_NOT_REGISTERED");
+  }
+
+  if (recipient.id === senderId) {
     throw new Error("CANNOT_INVITE_OWNER");
   }
 
+  // Immediately grant collaborator access
+  await prisma.diagramCollaborator.upsert({
+    where: {
+      diagramId_userId: {
+        diagramId,
+        userId: recipient.id
+      }
+    },
+    update: { role },
+    create: {
+      diagramId,
+      userId: recipient.id,
+      role
+    }
+  });
+
+  // Keep invitation record for tracking
   const token = crypto.randomBytes(32).toString("hex");
 
   return prisma.diagramInvitation.create({
@@ -38,7 +59,7 @@ export const createInvitation = async (
       diagramId,
       senderId,
       email: normalizedEmail,
-      recipientId: recipient?.id,
+      recipientId: recipient.id,
       role,
       token,
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
