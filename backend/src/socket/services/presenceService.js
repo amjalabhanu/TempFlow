@@ -57,8 +57,14 @@ export function broadcastPresence(io, diagramId) {
 
   if (usersMap) {
     for (const [userId, socketIds] of usersMap.entries()) {
-      const socketId = socketIds.values().next().value;
-      const activeSocket = io.sockets.sockets.get(socketId);
+      let activeSocket = null;
+
+      // Find any currently connected socket for this user
+      for (const socketId of socketIds) {
+        activeSocket = io.sockets.sockets.get(socketId);
+
+        if (activeSocket) break;
+      }
 
       if (activeSocket) {
         users.push({
