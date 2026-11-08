@@ -43,6 +43,8 @@ model Diagram {
   nodes Json @default("[]")
   edges Json @default("[]")
 
+  version Int @default(0)
+
   // Ownership
   ownerId String
   owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
@@ -59,6 +61,7 @@ model Diagram {
 
   collaborators DiagramCollaborator[]
   invitations   DiagramInvitation[]
+  operations DiagramOperation[]
 
   @@index([ownerId])
   @@index([visibility])
@@ -106,6 +109,27 @@ model DiagramInvitation {
   @@index([email])
   @@index([diagramId])
   @@map("diagram_invitations")
+}
+
+model DiagramOperation {
+  id        String   @id @default(uuid())
+
+  diagramId String
+  diagram   Diagram @relation(fields: [diagramId], references: [id], onDelete: Cascade)
+
+  operationId String
+  sequence    Int
+
+  type    String
+  payload Json
+  userId  String
+
+  createdAt DateTime @default(now())
+
+  @@unique([diagramId, operationId])
+  @@unique([diagramId, sequence])
+  @@index([diagramId])
+  @@map("diagram_operations")
 }
 
 enum DiagramVisibility {
